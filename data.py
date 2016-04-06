@@ -57,10 +57,12 @@ def get_inputs(batch_size, num_epochs=None, train=True):
                                                             num_epochs=num_epochs)
             images_labels = read_and_decode(filename_queue)
             #return image, label
-            images, sparse_labels = tf.train.shuffle_batch_join(
+            #images, sparse_labels = tf.train.shuffle_batch_join(
+            images, sparse_labels = tf.train.batch_join(
                 images_labels, batch_size=batch_size,
                 capacity=1000 + 3 * batch_size,
-                min_after_dequeue=1000)
+                #min_after_dequeue=1000
+                )
             return images, sparse_labels
 
 if __name__ == "__main__":

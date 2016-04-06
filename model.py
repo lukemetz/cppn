@@ -4,6 +4,20 @@ from matplotlib import pylab as plt
 import numpy as np
 from tqdm import trange
 
+# pipeline
+# input_batch -> samples -> train_model
+
+# descriminator --> works on sets of samples?
+                    # RNN?
+# Sample a grid of points and run on that.
+# sample a subset of image and run on that.
+
+# Checks real image data against sampled image data
+# sample section of image. Sample corresponding secion from CPPN.
+# lets try a VAE first.
+# goal is unsupervised. gradient descent back from input image to latent space to get code variables.
+# adversarial there is no linking between the two.
+
 imgs, labels = data.get_inputs(batch_size=10)
 
 def linear(input_, output_size, scope=None, stddev=0.02, bias_start=0.0, with_w=False):
@@ -36,16 +50,27 @@ def sample_img(img, n_samples):
 
 samp_x, samp_y, samples = sample_img(imgs[0, :, :], 2048)
 
+def sin_bank(x, scope):
+    bank = tf.get_variable(scope+"_bank", dtype=tf.float32, shape=[64, ],
+                    initializer=tf.random_uniform_initializer(0.0, 10.0))
+    shift = tf.get_variable(scope+"_shift", dtype=tf.float32, shape=[64, ],
+                    initializer=tf.random_uniform_initializer(0.0, 10.0))
+    return tf.sin(x*bank+shift)
+
 def model(samp_x, samp_y):
     samp_x = tf.expand_dims(samp_x, -1)
     samp_y = tf.expand_dims(samp_y, -1)
-    n = 512
+
+    samp_x = sin_bank(samp_x, "sin_x")
+    samp_y = sin_bank(samp_y, "sin_y")
+
+    n = 64
     o1 = tf.nn.relu(linear(samp_x, output_size=n, scope="l1x"))
     o2 = tf.nn.relu(linear(samp_y, output_size=n, scope="l1y"))
     o = o1 + o2
     o = tf.nn.relu((linear(o, output_size=n, scope="l2")))
-    o = tf.nn.relu((linear(o, output_size=n, scope="l2s")))
-    o = tf.nn.relu((linear(o, output_size=n, scope="l4s")))
+    #o = tf.nn.relu((linear(o, output_size=n, scope="l2s")))
+    #o = tf.nn.relu((linear(o, output_size=n, scope="l4s")))
     o = tf.nn.sigmoid(linear(o, output_size=1, scope="l3"))
     return tf.squeeze(o, [1])
 
@@ -59,16 +84,17 @@ def reconstruct_samples(target_size):
     return sy, sx
 
 def reconstruct_image(res, target_size):
-    return res.reshape((target_size, target_size))
+    return res.reshape((target_size, target_size))[::-1]
 
 #tf.get_variable_scope().reuse_variables()
 
 p_sx = tf.placeholder(shape=[None,], dtype=tf.float32)
 p_sy = tf.placeholder(shape=[None,], dtype=tf.float32)
 p_res = tf.placeholder(shape=[None,], dtype=tf.float32)
-res = model(p_sx, p_sy)
 
+res = model(p_sx, p_sy)
 loss = mse(res, p_res)
+
 mean_loss = tf.reduce_mean(loss)
 train_op = tf.train.AdamOptimizer(learning_rate=0.0002).minimize(loss)
 
@@ -80,19 +106,18 @@ init = tf.initialize_all_variables()
 sess.run([init])
 tf.train.start_queue_runners(sess=sess)
 x, y, saps = sess.run([samp_x, samp_y, samples])
-for i in trange(3000):
+for i in trange(2000):
     _, ll = sess.run([train_op, mean_loss], feed_dict={p_sx:x, p_sy:y, p_res:saps})
     print ll
 
 res_val = sess.run(res, feed_dict={p_sx:sx.astype("float32"), p_sy:sy.astype("float32")})
 img = reconstruct_image(res_val, 128)
 plt.imshow(img, cmap="gray", interpolation="nearest")
-plt.show()
+plt.figure()
 
 plt.scatter(x, y, c=saps, lw=0)
 plt.show()
 
-import ipdb; ipdb.set_trace()
     # pull a triangle filter
 
 # pull a bunch of samples from an image

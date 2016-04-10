@@ -91,10 +91,22 @@ def cppn_func(inp, context, z):
 
         #fc_inp = three_fc(inp-0.5, num_units_out=n)
 
-        pi = 3.1415 / 2.0
-        wh = tf.cos(pi) * h - tf.sin(w)
-        r_wh = sin_bank(wh, 64, length=3)
+        pi = 3.1415
+        n_angles = 128
+        length = 20
+        theta = tf.get_variable("rotations", dtype=tf.float32, shape=[n_angles,],
+                        initializer=tf.random_uniform_initializer(0.0, pi*2))
+        wh = tf.cos(theta) * h - tf.sin(theta)*w
+        r_wh = sin_bank(wh, n_angles, length=length)
         fc_wh = three_fc(r_wh, num_units_out=n)
+
+        length = 100
+        n_angles = 64
+        theta = tf.get_variable("rotations2", dtype=tf.float32, shape=[n_angles,],
+                        initializer=tf.random_uniform_initializer(0.0, pi*2))
+        wh_hf = tf.cos(theta) * h - tf.sin(theta)*w
+        r_wh_hf = sin_bank(wh_hf, n_angles, length=length)
+        fc_wh_hf = three_fc(r_wh_hf, num_units_out=n)
 
 
         context_proc = fc(flatten(context), num_units_out=n)
@@ -104,7 +116,8 @@ def cppn_func(inp, context, z):
         z_comb = tf.expand_dims(z_comb, 1)
 
         #res = (fc_h + fc_w + fc_d) * context_proc + z_comb
-        res = (fc_h + fc_w + fc_d + fc_wh) + z_comb
+        #res = (fc_h + fc_w + fc_d + fc_wh) + z_comb
+        res = (fc_wh + fc_wh_hf) + z_comb
         #res = (fc_h + fc_w + fc_d) + z_comb
         #res = (fc_h + fc_w + fc_d) + z_comb
         #res = fc_h + fc_w
@@ -201,7 +214,7 @@ g_step = opt.apply_gradients(g_grads_vars)
 sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
 
 with tf.variable_scope(gen_scope, reuse=True):
-    stable_z = np.random.uniform(0, 1, [128, z_dim]).astype("float32")
+    stable_z = np.random.uniform(0, 1, [100, z_dim]).astype("float32")
     tensor_z = tf.convert_to_tensor(stable_z)
     gen_images = generator(tensor_z, size=32)
 

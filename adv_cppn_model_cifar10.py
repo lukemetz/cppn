@@ -4,6 +4,8 @@ from slim.ops import conv2d, avg_pool, batch_norm, fc, flatten
 from ops import conv2d_transpose, lrelu
 import numpy as np
 from slim.scopes import arg_scope
+FLAGS = tf.flags.FLAGS
+tf.flags.DEFINE_integer("gpu_num", 0, "gpu number")
 
 batch_norm_params = {"epsilon":0.0001, "scale":True}
 z_dim = 16*8
@@ -12,33 +14,35 @@ def discriminator(inp):
     n = 32
     with arg_scope([conv2d], batch_norm_params=batch_norm_params, stddev=0.02, activation=lrelu, weight_decay=1e-5):
         inp = inp-0.5
-        o = conv2d(inp, num_filters_out=n, kernel_size=(3, 3), stride=1)
-        o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=2)
-        o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=1)
-        o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=2)
-        o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=1)
-        o = conv2d(o, num_filters_out=n*2, kernel_size=(3, 3), stride=2)
-        o = conv2d(o, num_filters_out=n*2, kernel_size=(3, 3), stride=1)
-        flat = flatten(o)
-        #flat = flatten(avg_pool(o, kernel_size=3))
-        prob = fc(flat, num_units_out=1, activation=tf.nn.sigmoid)
-        #prob = tf.Print(prob, [prob])
-        return prob
+        with tf.device("/gpu:%d"%FLAGS.gpu_num):
+            o = conv2d(inp, num_filters_out=n, kernel_size=(3, 3), stride=1)
+            o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=2)
+            o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=1)
+            o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=2)
+            o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=1)
+            o = conv2d(o, num_filters_out=n*2, kernel_size=(3, 3), stride=2)
+            o = conv2d(o, num_filters_out=n*2, kernel_size=(3, 3), stride=1)
+            flat = flatten(o)
+            #flat = flatten(avg_pool(o, kernel_size=3))
+            prob = fc(flat, num_units_out=1, activation=tf.nn.sigmoid)
+            #prob = tf.Print(prob, [prob])
+            return prob
 
 def generator_context(z):
     n = 32
     with arg_scope([conv2d, conv2d_transpose], batch_norm_params=batch_norm_params, stddev=0.02):
-        z = z*2-1
-        d = 8
-        z = fc(z, num_units_out=d*d*32, batch_norm_params=batch_norm_params)
-        c = z.get_shape()[1].value / (d*d)
-        z = tf.reshape(z, (-1, d, d, c))
-        o = conv2d_transpose(z, n, (3, 3), stride=(2, 2))
-        o = conv2d_transpose(o, n, (3, 3), stride=(2, 2))
-        o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=1)
-        o = conv2d(o, num_filters_out=4, kernel_size=(3, 3), stride=1)
-        attended = o
-        return attended
+        with tf.device("/gpu:%d"%FLAGS.gpu_num):
+            z = z*2-1
+            d = 8
+            z = fc(z, num_units_out=d*d*32, batch_norm_params=batch_norm_params)
+            c = z.get_shape()[1].value / (d*d)
+            z = tf.reshape(z, (-1, d, d, c))
+            o = conv2d_transpose(z, n, (3, 3), stride=(2, 2))
+            o = conv2d_transpose(o, n, (3, 3), stride=(2, 2))
+            o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=1)
+            o = conv2d(o, num_filters_out=4, kernel_size=(3, 3), stride=1)
+            attended = o
+            return attended
 
 def get_cords(batch_size, size):
     elem = np.mgrid[0:size, 0:size].reshape((2, -1)).T.reshape((1, -1, 2))
@@ -49,13 +53,14 @@ def get_cords(batch_size, size):
 
 def sin_bank(x, bank_size, length, scope=None):
     with tf.variable_op_scope([x], scope, "SinBank") as scope:
-        bank = tf.get_variable("bank", dtype=tf.float32, shape=[bank_size, ],
-                        initializer=tf.random_uniform_initializer(0.0, length))
-        shift = tf.get_variable("shift", dtype=tf.float32, shape=[bank_size, ],
-                        initializer=tf.random_uniform_initializer(0.0, length))
-        if not tf.get_variable_scope().reuse:
-            tf.histogram_summary(bank.name, bank)
-        return tf.sin(x*bank+shift)
+        with tf.device("/gpu:%d"%FLAGS.gpu_num):
+            bank = tf.get_variable("bank", dtype=tf.float32, shape=[bank_size, ],
+                            initializer=tf.random_uniform_initializer(0.0, length))
+            shift = tf.get_variable("shift", dtype=tf.float32, shape=[bank_size, ],
+                            initializer=tf.random_uniform_initializer(0.0, length))
+            if not tf.get_variable_scope().reuse:
+                tf.histogram_summary(bank.name, bank)
+            return tf.sin(x*bank+shift)
 
 def three_fc(x, num_units_out, *args, **kwargs):
     in_s = [y.value for y in x.get_shape()]
@@ -70,17 +75,18 @@ def cppn_func(inp, context, z):
         z = z*2 - 1
         #n = 64
         n = 32
+        length = 20
         h = inp[:, :, 0:1]
         w = inp[:, :, 1:2]
 
-        r_h = sin_bank(h, 64, length=3)
+        r_h = sin_bank(h, 64, length=length)
         fc_h = three_fc(r_h, num_units_out=n)
 
-        r_w = sin_bank(w, 64, length=3)
+        r_w = sin_bank(w, 64, length=length)
         fc_w = three_fc(r_w, num_units_out=n)
 
         d = tf.sqrt((h-0.5)**2 + (w-0.5)**2)
-        r_d = sin_bank(d, 64, length=3)
+        r_d = sin_bank(d, 64, length=length)
         fc_d = three_fc(r_d, num_units_out=n)
 
         #fc_inp = three_fc(inp-0.5, num_units_out=n)
@@ -113,31 +119,34 @@ def cppn_func(inp, context, z):
         return three_fc(h3, num_units_out=3, batch_norm_params=None)
 
 def generator(z, size=32):
-    attended = generator_context(z)
-    coords = get_cords(tf.shape(z)[0], size=size)
-    # coords: batch x size*size x 2
-    cppn_result_flat = cppn_func(coords, attended, z)
-    result_image = tf.reshape(cppn_result_flat, [-1, size, size, 3])
-    return result_image
+    with tf.device("/gpu:%d"%FLAGS.gpu_num):
+        attended = generator_context(z)
+        coords = get_cords(tf.shape(z)[0], size=size)
+        # coords: batch x size*size x 2
+        cppn_result_flat = cppn_func(coords, attended, z)
+        result_image = tf.reshape(cppn_result_flat, [-1, size, size, 3])
+        return result_image
 
 def encoder(inp, z_dim):
     n = 32
     with arg_scope([conv2d], batch_norm_params=batch_norm_params, stddev=0.02, activation=lrelu, weight_decay=1e-5):
-        inp = inp-0.5
-        o = conv2d(inp, num_filters_out=n, kernel_size=(3, 3), stride=1)
-        o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=2)
-        o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=2)
-        o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=2)
-        o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=1)
-        flat = flatten(o)
-        #flat = flatten(avg_pool(o, kernel_size=3))
-        z = fc(flat, num_units_out=z_dim, activation=tf.nn.tanh)/2+.5
-        return z
+        with tf.device("/gpu:%d"%FLAGS.gpu_num):
+            inp = inp-0.5
+            o = conv2d(inp, num_filters_out=n, kernel_size=(3, 3), stride=1)
+            o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=2)
+            o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=2)
+            o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=2)
+            o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=1)
+            flat = flatten(o)
+            #flat = flatten(avg_pool(o, kernel_size=3))
+            z = fc(flat, num_units_out=z_dim, activation=tf.nn.tanh)/2+.5
+            return z
 
 batch_size = 32
 
 with tf.variable_scope("data"):
-    images, _ = data_cifar10.get_inputs(batch_size)
+    with tf.device("/cpu:0"):
+        images, _ = data_cifar10.get_inputs(batch_size)
 
 with tf.variable_scope("generator") as gen_scope:
     z = tf.random_uniform([batch_size, z_dim], 0, 1)
@@ -266,6 +275,6 @@ while True:
     if i % 10 == 0:
         images = sess.run(gen_images)
         images_4x = sess.run(gen_images_4x)
-        color_grid_vis(images[:, :, :, :], (10, 10), save_path="out/%d.png"%i)
-        color_grid_vis(images_4x[:, :, :, :], (10, 10), save_path="out/%d_4x.png"%i)
+        color_grid_vis(images[:, :, :, :], (10, 10), save_path="out2/%d.png"%i)
+        color_grid_vis(images_4x[:, :, :, :], (10, 10), save_path="out2/%d_4x.png"%i)
 

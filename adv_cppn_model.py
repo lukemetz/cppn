@@ -83,6 +83,14 @@ def cppn_func(inp, context, z):
         r_d = sin_bank(d, 64, length=3)
         fc_d = three_fc(r_d, num_units_out=n)
 
+        #fc_inp = three_fc(inp-0.5, num_units_out=n)
+
+        pi = 3.1415 / 2.0
+        wh = tf.cos(pi) * h - tf.sin(w)
+        r_wh = sin_bank(wh, 64, length=3)
+        fc_wh = three_fc(r_wh, num_units_out=n)
+
+
         context_proc = fc(flatten(context), num_units_out=n)
         context_proc = tf.expand_dims(context_proc, 1)
 
@@ -90,7 +98,7 @@ def cppn_func(inp, context, z):
         z_comb = tf.expand_dims(z_comb, 1)
 
         #res = (fc_h + fc_w + fc_d) * context_proc + z_comb
-        res = (fc_h + fc_w + fc_d) + z_comb
+        res = (fc_h + fc_w + fc_d + fc_wh) + z_comb
         #res = (fc_h + fc_w + fc_d) + z_comb
         #res = (fc_h + fc_w + fc_d) + z_comb
         #res = fc_h + fc_w
@@ -172,6 +180,7 @@ ae_loss = mse_loss
 ae_loss_mean = tf.reduce_mean(ae_loss)
 
 d_step = tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5).minimize(discrim_loss, var_list=dis_vars)
+#opt = tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5)
 opt = tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5)
 g_grads_vars = opt.compute_gradients(generator_loss, var_list=gen_vars)
 
@@ -215,22 +224,28 @@ for i in range(10):
 
 import sys
 import json
-ff = open("logs/%s.ndjson"%sys.argv[1], "w")
+if len(sys.argv) == 2:
+    ff = open("logs/%s.ndjson"%sys.argv[1], "w")
 
 while True:
     i += 1
     print "<", i , ">",
     _, d_loss = sess.run([d_step, discrim_loss_mean])
     _, g_loss = sess.run([g_step, generator_loss_mean])
+    sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
     if g_loss > 1:
         for j in range(int(g_loss)):
             #_, ae_l = sess.run([ae_step, ae_loss_mean])
             _, g_loss = sess.run([g_step, generator_loss_mean])
             _, g_loss = sess.run([g_step, generator_loss_mean])
+            sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
+            sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
+            sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
+            sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
 
     #sum_val, _, ae_l, kl_l = sess.run([ summary, ae_step, ae_loss_mean, kl_loss_mean])
     #print ae_l, kl_l
-    print d_loss, g_loss
+    print d_loss, g_loss, ae_l
 
 
     #sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])

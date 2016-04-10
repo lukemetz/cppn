@@ -1,5 +1,5 @@
 import tensorflow as tf
-import data
+import data_cifar10
 from slim.ops import conv2d, avg_pool, batch_norm, fc, flatten
 from ops import conv2d_transpose, lrelu
 import numpy as np
@@ -110,14 +110,14 @@ def cppn_func(inp, context, z):
         h = three_fc(res, num_units_out=n)
         h2 = three_fc(h, num_units_out=n)
         h3 = three_fc(h2, num_units_out=n)
-        return three_fc(h3, num_units_out=1, batch_norm_params=None)
+        return three_fc(h3, num_units_out=3, batch_norm_params=None)
 
-def generator(z, size=28):
+def generator(z, size=32):
     attended = generator_context(z)
     coords = get_cords(tf.shape(z)[0], size=size)
-    # coords: batch x 28*28 x 2
+    # coords: batch x size*size x 2
     cppn_result_flat = cppn_func(coords, attended, z)
-    result_image = tf.reshape(cppn_result_flat, [-1, size, size, 1])
+    result_image = tf.reshape(cppn_result_flat, [-1, size, size, 3])
     return result_image
 
 def encoder(inp, z_dim):
@@ -137,7 +137,7 @@ def encoder(inp, z_dim):
 batch_size = 32
 
 with tf.variable_scope("data"):
-    images, _ = data.get_inputs(batch_size)
+    images, _ = data_cifar10.get_inputs(batch_size)
 
 with tf.variable_scope("generator") as gen_scope:
     z = tf.random_uniform([batch_size, z_dim], 0, 1)
@@ -194,10 +194,10 @@ sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
 with tf.variable_scope(gen_scope, reuse=True):
     stable_z = np.random.uniform(0, 1, [128, z_dim]).astype("float32")
     tensor_z = tf.convert_to_tensor(stable_z)
-    gen_images = generator(tensor_z, size=28)
+    gen_images = generator(tensor_z, size=32)
 
 with tf.variable_scope(gen_scope, reuse=True):
-    gen_images_4x = generator(tensor_z, size=28*4)
+    gen_images_4x = generator(tensor_z, size=32*4)
 
 summary = tf.merge_all_summaries()
 init = tf.initialize_all_variables()
@@ -208,15 +208,15 @@ writer = tf.train.SummaryWriter("logs/", graph=sess.graph)
 
 from scipy.misc import imsave
 import skimage.io
-def grayscale_grid_vis(X, (nh, nw), save_path=None):
-    h, w = X[0].shape[-2:]
-    img = np.zeros((h*nh, w*nw))
+def color_grid_vis(X, (nh, nw), save_path=None):
+    h, w = X[0].shape[0:2]
+    img = np.zeros((h*nh, w*nw, 3))
     for n, x in enumerate(X[0:h*w]):
         if n == nh*nw:
             break
         j = n/nw
         i = n%nw
-        img[j*h:j*h+h, i*w:i*w+w] = x
+        img[j*h:j*h+h, i*w:i*w+w, :] = x
     if save_path is not None:
         img = (np.clip(img, 0, 1)*255).astype("uint8")
         skimage.io.imsave(save_path, img)
@@ -266,6 +266,6 @@ while True:
     if i % 10 == 0:
         images = sess.run(gen_images)
         images_4x = sess.run(gen_images_4x)
-        grayscale_grid_vis(images[:, :, :, 0], (10, 10), save_path="out/%d.png"%i)
-        grayscale_grid_vis(images_4x[:, :, :, 0], (10, 10), save_path="out/%d_4x.png"%i)
+        color_grid_vis(images[:, :, :, :], (10, 10), save_path="out/%d.png"%i)
+        color_grid_vis(images_4x[:, :, :, :], (10, 10), save_path="out/%d_4x.png"%i)
 

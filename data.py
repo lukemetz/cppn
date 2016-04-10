@@ -5,7 +5,8 @@ import matplotlib.pylab as plt
 from tqdm import trange, tqdm
 
 def apply_transformations(image):
-    return tf.cast(image, tf.float32) / 255.
+    image = tf.cast(image, tf.float32) / 255.
+    image = tf.expand_dims(image, -1)
     #image = tf.random_crop(image, [32, 32, 3])
     ##image = tf.image.per_image_whitening(image)
 

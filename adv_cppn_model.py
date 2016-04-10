@@ -14,10 +14,11 @@ def discriminator(inp):
         inp = inp-0.5
         o = conv2d(inp, num_filters_out=n, kernel_size=(3, 3), stride=1)
         o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=2)
-        #o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=1)
-        o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=2)
+        o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=1)
         o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=2)
         o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=1)
+        o = conv2d(o, num_filters_out=n*2, kernel_size=(3, 3), stride=2)
+        o = conv2d(o, num_filters_out=n*2, kernel_size=(3, 3), stride=1)
         flat = flatten(o)
         #flat = flatten(avg_pool(o, kernel_size=3))
         prob = fc(flat, num_units_out=1, activation=tf.nn.sigmoid)
@@ -64,8 +65,9 @@ def three_fc(x, num_units_out, *args, **kwargs):
     out.set_shape( in_s[0:-1]+[num_units_out])
     return out
 
-def cppn_func(inp, context):
+def cppn_func(inp, context, z):
     with arg_scope([fc], batch_norm_params=batch_norm_params, stddev=0.02):
+        z = z*2 - 1
         n = 64
         h = inp[:, :, 0:1]
         w = inp[:, :, 1:2]
@@ -84,8 +86,16 @@ def cppn_func(inp, context):
         context_proc = fc(flatten(context), num_units_out=n)
         context_proc = tf.expand_dims(context_proc, 1)
 
-        res = (fc_h + fc_w + fc_d) * context_proc
+        z_comb = fc(z, num_units_out=n)
+        z_comb = tf.expand_dims(z_comb, 1)
+
+        res = (fc_h + fc_w + fc_d) * context_proc + z_comb
         #res = fc_h + fc_w
+        z_mul = fc(z, num_units_out=n)
+        z_mul = tf.expand_dims(z_mul, 1)
+
+        res *= z_mul
+
         hidden = three_fc(res, num_units_out=n)
         return three_fc(hidden, num_units_out=1, batch_norm_params=None)
 
@@ -93,7 +103,7 @@ def generator(z):
     attended = generator_context(z)
     coords = get_cords(tf.shape(z)[0])
     # coords: batch x 28*28 x 2
-    cppn_result_flat = cppn_func(coords, attended)
+    cppn_result_flat = cppn_func(coords, attended, z)
     result_image = tf.reshape(cppn_result_flat, [-1, 28, 28, 1])
     return result_image
 
@@ -151,7 +161,9 @@ mse_loss = tf.reduce_mean((images - ae_generated)**2, reduction_indices=[1, 2, 3
 kl_loss = -0.5 * (1 + 2*enc_z_sigma - enc_z_mean**2 - tf.exp(2*enc_z_sigma))
 kl_loss = tf.reduce_sum(kl_loss, reduction_indices=[1])
 kl_loss_mean = tf.reduce_mean(kl_loss)
-ae_loss = mse_loss + kl_loss
+vae_loss = mse_loss + kl_loss
+vae_loss_mean = tf.reduce_mean(vae_loss)
+ae_loss = mse_loss
 ae_loss_mean = tf.reduce_mean(ae_loss)
 
 d_step = tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5).minimize(discrim_loss, var_list=dis_vars)
@@ -197,19 +209,19 @@ for i in range(10):
     _, d_loss = sess.run([d_step, discrim_loss_mean])
 while True:
     i += 1
-    _, d_loss = sess.run([d_step, discrim_loss_mean])
-
-    _, g_loss = sess.run([g_step, generator_loss_mean])
-
-    if g_loss > 1:
-        for j in range(int(g_loss)):
-            #_, ae_l = sess.run([ae_step, ae_loss_mean])
-            _, g_loss = sess.run([g_step, generator_loss_mean])
-            _, g_loss = sess.run([g_step, generator_loss_mean])
+    #_, d_loss = sess.run([d_step, discrim_loss_mean])
+    #_, g_loss = sess.run([g_step, generator_loss_mean])
+    #if g_loss > 1:
+        #for j in range(int(g_loss)):
+            ##_, ae_l = sess.run([ae_step, ae_loss_mean])
+            #_, g_loss = sess.run([g_step, generator_loss_mean])
+            #_, g_loss = sess.run([g_step, generator_loss_mean])
 
     #sum_val, _, ae_l, kl_l = sess.run([ summary, ae_step, ae_loss_mean, kl_loss_mean])
-    print d_loss, g_loss
     #print ae_l, kl_l
+    sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
+    print ae_l
+    #print d_loss, g_loss
 
     #writer.add_summary(sum_val, global_step=i)
     #writer.flush()

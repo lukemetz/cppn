@@ -13,19 +13,17 @@ z_dim = 16*8*2
 z_dim = 16*8*2*8
 
 def discriminator(inp):
-    n = 32
+    n = 32*4
     with arg_scope([conv2d], batch_norm_params=batch_norm_params, stddev=0.02, activation=lrelu, weight_decay=1e-5):
         inp = inp-0.5
         with tf.device("/gpu:%d"%FLAGS.gpu_num):
-            o = conv2d(inp, num_filters_out=32, kernel_size=(3, 3), stride=1)
-            o = conv2d(o, num_filters_out=64, kernel_size=(3, 3), stride=2)
-            o = conv2d(o, num_filters_out=64, kernel_size=(3, 3), stride=1)
-            o = conv2d(o, num_filters_out=128, kernel_size=(3, 3), stride=2)
-            o = conv2d(o, num_filters_out=128, kernel_size=(3, 3), stride=1)
-            o = conv2d(o, num_filters_out=128, kernel_size=(3, 3), stride=1)
-            o = conv2d(o, num_filters_out=256, kernel_size=(3, 3), stride=2)
-            o = conv2d(o, num_filters_out=256, kernel_size=(3, 3), stride=1)
-            o = conv2d(o, num_filters_out=256, kernel_size=(3, 3), stride=1)
+            o = conv2d(inp, num_filters_out=n, kernel_size=(3, 3), stride=1)
+            o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=2)
+            o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=1)
+            o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=2)
+            o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=1)
+            o = conv2d(o, num_filters_out=n*2, kernel_size=(3, 3), stride=2)
+            o = conv2d(o, num_filters_out=n*2, kernel_size=(3, 3), stride=1)
             flat = flatten(o)
             #flat = flatten(avg_pool(o, kernel_size=3))
             prob = fc(flat, num_units_out=1, activation=tf.nn.sigmoid)
@@ -129,8 +127,7 @@ def cppn_func(inp, context, z):
 
         #res = (fc_h + fc_w + fc_d) * context_proc + z_comb
         #res = (fc_h + fc_w + fc_d + fc_wh) + z_comb
-        #res = (fc_wh + fc_wh_hf) + z_comb
-        res = (fc_wh + fc_wh_hf + fc_d) + z_comb
+        res = (fc_wh + fc_wh_hf) + z_comb
         #res = (fc_h + fc_w + fc_d) + z_comb
         #res = (fc_h + fc_w + fc_d) + z_comb
         #res = fc_h + fc_w
@@ -167,7 +164,7 @@ def generator(z, size=32):
             #o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=1)
             #n = 64
             #n = 128
-            #o = conv2d_transpose(o, n, (3, 3), stride=(2, 2))t2
+            #o = conv2d_transpose(o, n, (3, 3), stride=(2, 2))
             #o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=1)
             #o = conv2d(o, num_filters_out=3, kernel_size=(3, 3), stride=1)
             #attended = o
@@ -193,8 +190,7 @@ def encoder(inp, z_dim):
             return z
 
 #batch_size = 32
-#batch_size = 64
-batch_size = 48
+batch_size = 64
 
 with tf.variable_scope("data"):
     with tf.device("/cpu:0"):
@@ -253,7 +249,7 @@ g_step = opt.apply_gradients(g_grads_vars)
 sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
 
 with tf.variable_scope(gen_scope, reuse=True):
-    stable_z = np.random.uniform(0, 1, [7*7, z_dim]).astype("float32")
+    stable_z = np.random.uniform(0, 1, [8*8, z_dim]).astype("float32")
     tensor_z = tf.convert_to_tensor(stable_z)
     gen_images = generator(tensor_z, size=32)
 
@@ -284,7 +280,7 @@ def color_grid_vis(X, (nh, nw), save_path=None):
     return img
 
 i = 0
-for _ in range(10):
+for i in range(10):
     _, d_loss = sess.run([d_step, discrim_loss_mean])
 
 import sys
@@ -293,20 +289,20 @@ if len(sys.argv) == 2:
     ff = open("logs/%s.ndjson"%sys.argv[1], "w")
 
 while True:
+    i += 1
     print "<", i , ">",
     _, d_loss = sess.run([d_step, discrim_loss_mean])
     _, g_loss = sess.run([g_step, generator_loss_mean])
     sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
-    _, g_loss = sess.run([g_step, generator_loss_mean])
-    #if g_loss > 1:
-        #for j in range(int(g_loss)):
-            ##_, ae_l = sess.run([ae_step, ae_loss_mean])
-            #_, g_loss = sess.run([g_step, generator_loss_mean])
-            #_, g_loss = sess.run([g_step, generator_loss_mean])
-            #sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
-            #sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
-            #sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
-            #sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
+    if g_loss > 1:
+        for j in range(int(g_loss)):
+            #_, ae_l = sess.run([ae_step, ae_loss_mean])
+            _, g_loss = sess.run([g_step, generator_loss_mean])
+            _, g_loss = sess.run([g_step, generator_loss_mean])
+            sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
+            sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
+            sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
+            sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
 
     #sum_val, _, ae_l, kl_l = sess.run([ summary, ae_step, ae_loss_mean, kl_loss_mean])
     #print ae_l, kl_l
@@ -318,8 +314,7 @@ while True:
     to_write = dict()
     to_write['loss'] = float(ae_l)
     to_write['iterations'] = i
-
-    #ff.write(json.dumps(to_write) + "\n")
+    ff.write(json.dumps(to_write) + "\n")
 
 
     #writer.add_summary(sum_val, global_step=i)
@@ -329,8 +324,6 @@ while True:
     if i % 50 == 0:
         images = sess.run(gen_images)
         images_4x = sess.run(gen_images_4x)
-        color_grid_vis(images[:, :, :, :], (7, 7), save_path="out/%d.png"%i)
-        color_grid_vis(images_4x[:, :, :, :], (7, 7), save_path="out/%d_4x.png"%i)
-
-    i += 1
+        color_grid_vis(images[:, :, :, :], (8, 8), save_path="out/%d.png"%i)
+        color_grid_vis(images_4x[:, :, :, :], (8, 8), save_path="out/%d_4x.png"%i)
 

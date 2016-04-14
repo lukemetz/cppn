@@ -234,36 +234,36 @@ if len(sys.argv) == 2:
 while True:
     i += 1
     print "<", i , ">",
-    _, d_loss = sess.run([d_step, discrim_loss_mean])
-    _, g_loss = sess.run([g_step, generator_loss_mean])
-    sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
-    if g_loss > 1:
-        for j in range(int(g_loss)):
-            #_, ae_l = sess.run([ae_step, ae_loss_mean])
-            _, g_loss = sess.run([g_step, generator_loss_mean])
-            _, g_loss = sess.run([g_step, generator_loss_mean])
-            sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
-            sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
-            sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
-            sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
-
-    #sum_val, _, ae_l, kl_l = sess.run([ summary, ae_step, ae_loss_mean, kl_loss_mean])
-    #print ae_l, kl_l
-    print d_loss, g_loss, ae_l
-
-
+    #_, d_loss = sess.run([d_step, discrim_loss_mean])
+    #_, g_loss = sess.run([g_step, generator_loss_mean])
     #sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
-    #print ae_l
-    #to_write = dict()
-    #to_write['loss'] = float(ae_l)
-    #to_write['iterations'] = i
-    #ff.write(json.dumps(to_write) + "\n")
+    #if g_loss > 1:
+        #for j in range(int(g_loss)):
+            ##_, ae_l = sess.run([ae_step, ae_loss_mean])
+            #_, g_loss = sess.run([g_step, generator_loss_mean])
+            #_, g_loss = sess.run([g_step, generator_loss_mean])
+            #sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
+            #sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
+            #sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
+            #sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
+
+    ##sum_val, _, ae_l, kl_l = sess.run([ summary, ae_step, ae_loss_mean, kl_loss_mean])
+    ##print ae_l, kl_l
+    #print d_loss, g_loss, ae_l
+
+
+    sum_val, _, ae_l = sess.run([ summary, ae_step, ae_loss_mean])
+    print ae_l
+    to_write = dict()
+    to_write['loss'] = float(ae_l)
+    to_write['iterations'] = i
+    ff.write(json.dumps(to_write) + "\n")
 
 
     #writer.add_summary(sum_val, global_step=i)
     #writer.flush()
     # make and save samples
-    if i % 10 == 0:
+    if i % 100 == 0:
         images = sess.run(gen_images)
         images_4x = sess.run(gen_images_4x)
         grayscale_grid_vis(images[:, :, :, 0], (10, 10), save_path="out/%d.png"%i)

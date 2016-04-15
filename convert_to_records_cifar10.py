@@ -12,12 +12,14 @@ np.random.shuffle(idx)
 tr_imgs = tr_imgs[idx]
 tr_labels = tr_labels[idx]
 
-writer = tf.python_io.TFRecordWriter("cifar10_train.tfrecords")
+writer = tf.python_io.TFRecordWriter("cifar10_bird_train.tfrecords")
 # iterate over each example
 # wrap with tqdm for a progress bar
 for example_idx in tqdm(range(len(tr_imgs))):
     img = tr_imgs[example_idx]
     label = tr_labels[example_idx]
+    if label != 2:
+        continue
 
     # construct the Example proto boject
     example = tf.train.Example(

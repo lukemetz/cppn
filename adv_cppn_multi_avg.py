@@ -15,34 +15,34 @@ z_dim = 16*8*2*8
 def discrim4(inp):
   with arg_scope([conv2d], batch_norm_params=batch_norm_params, stddev=0.02, activation=lrelu, weight_decay=1e-5):
     o = conv2d(inp, num_filters_out=32, kernel_size=(3, 3), stride=1)
-    o = conv2d(inp, num_filters_out=32, kernel_size=(3, 3), stride=1)
+    o = conv2d(o, num_filters_out=32, kernel_size=(3, 3), stride=1)
     return fc(flatten(o), num_units_out=1, activation=tf.nn.sigmoid)
 
 def discrim8(inp):
   with arg_scope([conv2d], batch_norm_params=batch_norm_params, stddev=0.02, activation=lrelu, weight_decay=1e-5):
     o = conv2d(inp, num_filters_out=32, kernel_size=(3, 3), stride=1)
-    o = conv2d(inp, num_filters_out=32, kernel_size=(3, 3), stride=2)
-    o = conv2d(inp, num_filters_out=32, kernel_size=(3, 3), stride=1)
+    o = conv2d(o, num_filters_out=32, kernel_size=(3, 3), stride=2)
+    o = conv2d(o, num_filters_out=32, kernel_size=(3, 3), stride=1)
     return fc(flatten(o), num_units_out=1, activation=tf.nn.sigmoid)
 
 def discrim16(inp):
   with arg_scope([conv2d], batch_norm_params=batch_norm_params, stddev=0.02, activation=lrelu, weight_decay=1e-5):
     o = conv2d(inp, num_filters_out=32, kernel_size=(3, 3), stride=1)
-    o = conv2d(inp, num_filters_out=32, kernel_size=(3, 3), stride=2)
-    o = conv2d(inp, num_filters_out=32, kernel_size=(3, 3), stride=1)
-    o = conv2d(inp, num_filters_out=32, kernel_size=(3, 3), stride=2)
-    o = conv2d(inp, num_filters_out=32, kernel_size=(3, 3), stride=1)
+    o = conv2d(o, num_filters_out=32, kernel_size=(3, 3), stride=2)
+    o = conv2d(o, num_filters_out=32, kernel_size=(3, 3), stride=1)
+    o = conv2d(o, num_filters_out=32, kernel_size=(3, 3), stride=2)
+    o = conv2d(o, num_filters_out=32, kernel_size=(3, 3), stride=1)
     return fc(flatten(o), num_units_out=1, activation=tf.nn.sigmoid)
 
 def discrim32(inp):
   with arg_scope([conv2d], batch_norm_params=batch_norm_params, stddev=0.02, activation=lrelu, weight_decay=1e-5):
     o = conv2d(inp, num_filters_out=32, kernel_size=(3, 3), stride=1)
-    o = conv2d(inp, num_filters_out=32, kernel_size=(3, 3), stride=2)
-    o = conv2d(inp, num_filters_out=32, kernel_size=(3, 3), stride=1)
-    o = conv2d(inp, num_filters_out=32, kernel_size=(3, 3), stride=2)
-    o = conv2d(inp, num_filters_out=32, kernel_size=(3, 3), stride=1)
-    o = conv2d(inp, num_filters_out=64, kernel_size=(3, 3), stride=2)
-    o = conv2d(inp, num_filters_out=64, kernel_size=(3, 3), stride=1)
+    o = conv2d(o, num_filters_out=32, kernel_size=(3, 3), stride=2)
+    o = conv2d(o, num_filters_out=32, kernel_size=(3, 3), stride=1)
+    o = conv2d(o, num_filters_out=32, kernel_size=(3, 3), stride=2)
+    o = conv2d(o, num_filters_out=32, kernel_size=(3, 3), stride=1)
+    o = conv2d(o, num_filters_out=64, kernel_size=(3, 3), stride=2)
+    o = conv2d(o, num_filters_out=64, kernel_size=(3, 3), stride=1)
     return fc(flatten(o), num_units_out=1, activation=tf.nn.sigmoid)
 
 def get_cords(batch_size, size):
@@ -78,7 +78,9 @@ def three_fc(x, num_units_out, *args, **kwargs):
     return out
 
 def cppn_func(inp, z):
-    with arg_scope([fc], batch_norm_params=batch_norm_params, stddev=0.02):
+    with arg_scope([fc],
+                #batch_norm_params=batch_norm_params,
+                stddev=0.02):
         z = z*2 - 1
         #n = 32
         n = 128
@@ -115,23 +117,23 @@ def cppn_func(inp, z):
         r_wh_hf = sin_bank(wh_hf, n_angles, length=length)
         fc_wh_hf = three_fc(r_wh_hf, num_units_out=n)
 
-        length = 50
         n_angles = 128
-        z_angle = fc(z, num_units_out=n_angles, activation=None, stddev=0.2, trainable=False)*10
+        trainable = True
+        z_angle = fc(z, num_units_out=n_angles, activation=None, stddev=0.1, trainable=trainable)*10
         z_angle = tf.expand_dims(z_angle, 1)
-        z_scale = fc(z, num_units_out=n_angles, activation=None, stddev=0.2, trainable=False)*30
+        z_scale = fc(z, num_units_out=n_angles, activation=None, stddev=0.1, trainable=trainable)*10
         z_scale = tf.expand_dims(z_scale, 1)
-        z_shift = fc(z, num_units_out=n_angles, activation=None, stddev=0.2, trainable=False)*30
+        z_shift = fc(z, num_units_out=n_angles, activation=None, stddev=0.1, trainable=trainable)*10
         z_shift = tf.expand_dims(z_shift, 1)
         rot_z = tf.cos(z_angle) * h - tf.sin(z_angle)*w
         fc_zangle = tf.sin(rot_z*z_scale + z_shift)
         fc_zangle_proj = three_fc(fc_zangle, num_units_out=n)
 
-        z_angle = fc(z, num_units_out=n_angles, activation=None, stddev=0.2, trainable=False)*10
+        z_angle = fc(z, num_units_out=n_angles, activation=None, stddev=0.1, trainable=trainable)*10
         z_angle = tf.expand_dims(z_angle, 1)
-        z_scale = fc(z, num_units_out=n_angles, activation=None, stddev=0.2, trainable=False)*4
+        z_scale = fc(z, num_units_out=n_angles, activation=None, stddev=0.1, trainable=trainable)*4
         z_scale = tf.expand_dims(z_scale, 1)
-        z_shift = fc(z, num_units_out=n_angles, activation=None, stddev=0.2, trainable=False)*4
+        z_shift = fc(z, num_units_out=n_angles, activation=None, stddev=0.1, trainable=trainable)*4
         z_shift = tf.expand_dims(z_shift, 1)
         rot_z = tf.cos(z_angle) * h - tf.sin(z_angle)*w
         fc_zangle = tf.sin(rot_z*z_scale + z_shift)
@@ -155,11 +157,12 @@ def cppn_func(inp, z):
 
         #res *= z_mul
 
+    with arg_scope([fc], batch_norm_params=batch_norm_params, stddev=0.02):
         n = 64
         h = three_fc(res, num_units_out=n)
         h2 = three_fc(h, num_units_out=n)
         #h3 = three_fc(h2, num_units_out=n)
-        return three_fc(h2, num_units_out=3, batch_norm_params=None)
+        return three_fc(h2, num_units_out=3, batch_norm_params=None) * 0.5 + 0.5
 
 def generator(z, size=32):
     with tf.device("/gpu:%d"%FLAGS.gpu_num):
@@ -169,25 +172,21 @@ def generator(z, size=32):
         result_image = tf.reshape(cppn_result_flat, [-1, size, size, 3])
         return result_image
 
-#def generator(z, size=32):
-    #with arg_scope([conv2d, conv2d_transpose], batch_norm_params=batch_norm_params, stddev=0.02):
-        #with tf.device("/gpu:%d"%FLAGS.gpu_num):
-            #z = z*2-1
-            #d = 4
-            #z = fc(z, num_units_out=d*d*32, batch_norm_params=batch_norm_params)
-            #c = z.get_shape()[1].value / (d*d)
-            #z = tf.reshape(z, (-1, d, d, c))
-            #n = 128
-            #o = conv2d_transpose(z, n, (3, 3), stride=(2, 2))
-            #o = conv2d_transpose(o, n, (3, 3), stride=(2, 2))
-            #o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=1)
-            #n = 64
-            #n = 128
-            #o = conv2d_transpose(o, n, (3, 3), stride=(2, 2))t2
-            #o = conv2d(o, num_filters_out=n, kernel_size=(3, 3), stride=1)
-            #o = conv2d(o, num_filters_out=3, kernel_size=(3, 3), stride=1)
-            #attended = o
-            #return attended
+def encoder(inp, z_dim):
+    #n = 32
+    with arg_scope([conv2d, fc], batch_norm_params=batch_norm_params, stddev=0.02, activation=lrelu, weight_decay=1e-5):
+        with tf.device("/gpu:%d"%FLAGS.gpu_num):
+            inp = inp-0.5
+            o = conv2d(inp, num_filters_out=32, kernel_size=(3, 3), stride=1)
+            o = conv2d(o, num_filters_out=32, kernel_size=(3, 3), stride=2)
+            o = conv2d(o, num_filters_out=64, kernel_size=(3, 3), stride=2)
+            o = conv2d(o, num_filters_out=64, kernel_size=(3, 3), stride=1)
+            o = conv2d(o, num_filters_out=128, kernel_size=(3, 3), stride=2)
+            o = conv2d(o, num_filters_out=128, kernel_size=(3, 3), stride=1)
+            flat = flatten(o)
+            z = fc(flat, num_units_out=z_dim, activation=None)
+            # normalized between -2 and 2 because of batchnorm
+            return tf.nn.sigmoid(z * 2)
 
 
 #batch_size = 32
@@ -197,15 +196,9 @@ batch_size = 48
 with tf.variable_scope("data"):
     with tf.device("/cpu:0"):
         images32, _ = data_cifar10.get_inputs(batch_size)
-
-        images16, _ = data_cifar10.get_inputs(batch_size)
-        images16 = tf.image.resize_images(images16, 16, 16)
-
-        images8, _ = data_cifar10.get_inputs(batch_size)
-        images8 = tf.image.resize_images(images16, 8, 8)
-
-        images4, _ = data_cifar10.get_inputs(batch_size)
-        images4 = tf.image.resize_images(images16, 4, 4)
+        images16 = avg_pool(images32, kernel_size=[2, 2])
+        images8 = avg_pool(images16, kernel_size=[2, 2])
+        images4 = avg_pool(images8, kernel_size=[2, 2])
 
 with tf.variable_scope("generator") as gen_scope:
     z = tf.random_uniform([batch_size, z_dim], 0, 1)
@@ -238,6 +231,13 @@ with tf.variable_scope("discriminator", reuse=True) as scope:
     fake_probs16 = discrim16(gen16)
     fake_probs32 = discrim32(gen32)
 
+with tf.variable_scope("encoder") as enc_scope:
+    z = encoder(images32, z_dim)
+
+with tf.variable_scope(gen_scope, reuse=True):
+    ae_generated = generator(z, size=32)
+
+
 dis_vars = [x for x in tf.trainable_variables() if x.name.startswith(scope.name)]
 
 def discrim_gen_loss(real_probs, fake_probs):
@@ -252,21 +252,31 @@ d8_loss, d8_mean_loss, g8_loss, g8_mean_loss = discrim_gen_loss(real_probs8, fak
 d16_loss, d16_mean_loss, g16_loss, g16_mean_loss = discrim_gen_loss(real_probs16, fake_probs16)
 d32_loss, d32_mean_loss, g32_loss, g32_mean_loss = discrim_gen_loss(real_probs32, fake_probs32)
 
-d4_step = tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5).minimize(d4_loss, var_list=dis_vars)
-d8_step = tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5).minimize(d8_loss, var_list=dis_vars)
-d16_step = tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5).minimize(d16_loss, var_list=dis_vars)
-d32_step = tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5).minimize(d32_loss, var_list=dis_vars)
+d_loss = d4_loss + d8_loss + d16_loss + d32_loss
+g_loss = g4_loss + g8_loss + g16_loss + g32_loss
+
+ae_loss = tf.reduce_mean(tf.abs(ae_generated - images32), [1, 2, 3])
+ae_loss_mean = tf.reduce_mean(ae_loss, [0])
+
+min_val = tf.convert_to_tensor(-1.0)
+max_val = tf.convert_to_tensor(1.0)
+opt = tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5)
+vars_grads = opt.compute_gradients(d_loss, var_list=dis_vars)
+vars_grads = [(tf.clip_by_value(g, min_val, max_val), v) for g,v in vars_grads if g is not None]
+d_step = opt.apply_gradients(vars_grads)
 
 #opt = tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5)
-g4_step= tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5).minimize(g4_loss, var_list=gen_vars)
-g8_step= tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5).minimize(g8_loss, var_list=gen_vars)
-g16_step= tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5).minimize(g16_loss, var_list=gen_vars)
-g32_step= tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5).minimize(g32_loss, var_list=gen_vars)
+opt = tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5)
+vars_grads = opt.compute_gradients(g_loss, var_list=gen_vars)
+vars_grads = [(tf.clip_by_value(g, min_val, max_val), v) for g,v in vars_grads if g is not None]
+g_step = opt.apply_gradients(vars_grads)
+
+ae_step = tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5).minimize(ae_loss)
 
 sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
 
 with tf.variable_scope(gen_scope, reuse=True):
-    stable_z = np.random.uniform(0, 1, [7*7, z_dim]).astype("float32")
+    stable_z = np.random.uniform(0, 1, [6*6, z_dim]).astype("float32")
     tensor_z = tf.convert_to_tensor(stable_z)
     gen_images = generator(tensor_z, size=32)
 
@@ -305,17 +315,11 @@ if len(sys.argv) == 2:
 
 while True:
     print "<", i , ">"
-    _, d4_loss = sess.run([d4_step, d4_mean_loss])
-    _, g4_loss = sess.run([g4_step, g4_mean_loss])
-
-    _, d8_loss = sess.run([d8_step, d8_mean_loss])
-    _, g8_loss = sess.run([g8_step, g8_mean_loss])
-
-    _, d16_loss = sess.run([d16_step, d16_mean_loss])
-    _, g16_loss = sess.run([g16_step, g16_mean_loss])
-
-    _, d32_loss = sess.run([d32_step, d32_mean_loss])
-    _, g32_loss = sess.run([g32_step, g32_mean_loss])
+    _, d4_loss, d8_loss, d16_loss, d32_loss = sess.run([d_step, d4_mean_loss, d8_mean_loss,
+                                                        d16_mean_loss, d32_mean_loss])
+    _, g4_loss, g8_loss, g16_loss, g32_loss = sess.run([g_step, g4_mean_loss, g8_mean_loss,
+                                                        g16_mean_loss, g32_mean_loss])
+    _, ae_loss_v = sess.run([ae_step, ae_loss_mean])
 
     #sum_val, _, ae_l, kl_l = sess.run([ summary, ae_step, ae_loss_mean, kl_loss_mean])
     #print ae_l, kl_l
@@ -323,13 +327,14 @@ while True:
     print "8 > dloss:", d8_loss, "gloss:", g8_loss
     print "16 > dloss:", d16_loss, "gloss:", g16_loss
     print "32 > dloss:", d32_loss, "gloss:", g32_loss
+    print "AE loss", ae_loss_v
 
 
     if i % 50 == 0:
         images = sess.run(gen_images)
         images_4x = sess.run(gen_images_4x)
-        color_grid_vis(images[:, :, :, :], (7, 7), save_path="out2/%d.png"%i)
-        color_grid_vis(images_4x[:, :, :, :], (7, 7), save_path="out2/%d_4x.png"%i)
+        color_grid_vis(images[:, :, :, :], (6, 6), save_path="out2/%d.png"%i)
+        color_grid_vis(images_4x[:, :, :, :], (6, 6), save_path="out2/%d_4x.png"%i)
 
     i += 1
 
